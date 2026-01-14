@@ -3,12 +3,10 @@ from dotenv import load_dotenv
 
 from livekit import agents, rtc
 from livekit.agents import AgentServer, AgentSession, Agent, room_io
-from livekit.plugins import (
-    google,
-    noise_cancellation,
-)
+from livekit.plugins import google, noise_cancellation
 import mss
 import numpy as np
+from PIL import Image
 
 load_dotenv(".env")
 
@@ -18,6 +16,7 @@ class Assistant(Agent):
 
 server = AgentServer()
 
+# ---------- SCREEN CAPTURE ----------
 async def capture_screen(source: rtc.VideoSource, width: int, height: int):
     """Continuously capture screen frames and feed them to the video source."""
     with mss.mss() as sct:
@@ -35,7 +34,6 @@ async def capture_screen(source: rtc.VideoSource, width: int, height: int):
                 
                 # Resize if needed
                 if img.shape[:2] != target_size[::-1]:
-                    from PIL import Image
                     pil_img = Image.fromarray(img)
                     pil_img = pil_img.resize(target_size, Image.Resampling.LANCZOS)
                     img = np.array(pil_img)
@@ -63,25 +61,24 @@ async def capture_screen(source: rtc.VideoSource, width: int, height: int):
                 print(f"Error capturing screen: {e}")
                 await asyncio.sleep(1 / 15)
 
+
+# ---------- LIVEKIT AGENT ----------
 @server.rtc_session()
 async def my_agent(ctx: agents.JobContext):
     session = AgentSession(
-        llm=google.realtime.RealtimeModel(
-            voice="Puck"
-        )
+        llm=google.realtime.RealtimeModel(voice="Puck")
     )
 
-    # Set up screen sharing
     WIDTH = 1920
     HEIGHT = 1080
-    
-    # Create video source and track
+
     video_source = rtc.VideoSource(WIDTH, HEIGHT)
-    video_track = rtc.LocalVideoTrack.create_video_track("screen-share", video_source)
-    
-    # Configure publish options for screen share
+    video_track = rtc.LocalVideoTrack.create_video_track(
+        "screen-share", video_source
+    )
+
     publish_options = rtc.TrackPublishOptions(
-        source=rtc.TrackSource.SOURCE_SCREEN_SHARE,
+        source=rtc.TrackSource.SOURCE_CAMERA,
         simulcast=True,
         video_encoding=rtc.VideoEncoding(
             max_framerate=15,
@@ -89,28 +86,35 @@ async def my_agent(ctx: agents.JobContext):
         ),
         video_codec=rtc.VideoCodec.H264,
     )
-    
-    # Start screen capture in background
-    capture_task = asyncio.create_task(capture_screen(video_source, WIDTH, HEIGHT))
-    
-    # Publish the screen share track through the room's local participant
-    await ctx.room.local_participant.publish_track(video_track, publish_options)
 
+    # ✅ CONNECT ROOM FIRST
     await session.start(
         room=ctx.room,
         agent=Assistant(),
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
-                noise_cancellation=lambda params: noise_cancellation.BVCTelephony() if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP else noise_cancellation.BVC(),
+                noise_cancellation=lambda params:
+                    noise_cancellation.BVCTelephony()
+                    if params.participant.kind
+                    == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                    else noise_cancellation.BVC(),
             ),
             video_input=True,
         ),
     )
 
+    # ✅ Publish AFTER connect
+    await ctx.room.local_participant.publish_track(
+        video_track, publish_options
+    )
+
+    # Start screen capture in background
+    capture_task = asyncio.create_task(capture_screen(video_source, WIDTH, HEIGHT))
+
     await session.generate_reply(
         instructions="Greet the user and offer your assistance. You should start by speaking in English."
     )
-    
+
     # Keep the capture task running
     try:
         await capture_task

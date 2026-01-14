@@ -1,0 +1,32 @@
+# =============================================================================
+# MIRAGE BACKEND DEPENDENCIES
+# =============================================================================
+
+# FastAPI Backend
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Supabase Database & Auth
+supabase>=2.0.0
+
+# LiveKit API (for token generation - no system deps needed)
+livekit-api>=0.6.0
+
+# Google Gemini
+google-genai>=0.5.0
+
+# Authentication
+python-jose[cryptography]>=3.3.0
+PyJWT>=2.8.0
+
+# HTTP Client
+httpx>=0.26.0
+
+# Utilities
+python-dotenv>=1.0.0
+structlog>=24.0.0
+
+# CORS
+python-multipart>=0.0.6
