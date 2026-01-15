@@ -124,6 +124,114 @@ AGENT_NAME=
 
 These are required for the voice agent functionality to work with your LiveKit project.
 
+## Supabase Integration
+
+This project includes Supabase integration for data persistence, authentication, and real-time features.
+
+### Setup
+
+1. Create a new project at [supabase.com](https://supabase.com)
+
+2. Go to your project settings and copy the Project URL and anon/public key
+
+3. Update your `.env` file with the Supabase credentials:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. Create the necessary database tables. You can use the SQL editor in your Supabase dashboard:
+
+   ```sql
+   -- Sessions table
+   CREATE TABLE sessions (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     user_id UUID REFERENCES auth.users(id),
+     started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+     ended_at TIMESTAMP WITH TIME ZONE,
+     metadata JSONB
+   );
+
+   -- Chat messages table
+   CREATE TABLE chat_messages (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+     role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+     content TEXT NOT NULL,
+     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+   );
+
+   -- Enable RLS (Row Level Security)
+   ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+   -- Create policies for authenticated users
+   CREATE POLICY "Users can view their own sessions" ON sessions
+     FOR SELECT USING (auth.uid() = user_id);
+
+   CREATE POLICY "Users can insert their own sessions" ON sessions
+     FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+   CREATE POLICY "Users can update their own sessions" ON sessions
+     FOR UPDATE USING (auth.uid() = user_id);
+
+   CREATE POLICY "Users can view messages from their sessions" ON chat_messages
+     FOR SELECT USING (
+       EXISTS (
+         SELECT 1 FROM sessions
+         WHERE sessions.id = chat_messages.session_id
+         AND sessions.user_id = auth.uid()
+       )
+     );
+
+   CREATE POLICY "Users can insert messages to their sessions" ON chat_messages
+     FOR INSERT WITH CHECK (
+       EXISTS (
+         SELECT 1 FROM sessions
+         WHERE sessions.id = chat_messages.session_id
+         AND sessions.user_id = auth.uid()
+       )
+     );
+   ```
+
+### Usage
+
+The Supabase client is available through `@/lib/supabase`. Authentication hooks and database utilities are provided:
+
+- `useSupabaseAuth()` - Authentication hook for sign in/up/out
+- `@/lib/supabase-db` - Database operations for sessions and chat messages
+
+Example usage:
+
+```typescript
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth'
+import { sessions, chatMessages } from '@/lib/supabase-db'
+
+function MyComponent() {
+  const { user, signIn, signOut } = useSupabaseAuth()
+
+  const createSession = async () => {
+    if (user) {
+      const session = await sessions.create({
+        user_id: user.id,
+        started_at: new Date().toISOString(),
+        metadata: { agent: 'voice-agent' }
+      })
+      return session
+    }
+  }
+
+  const saveMessage = async (sessionId: string, content: string) => {
+    await chatMessages.insert({
+      session_id: sessionId,
+      role: 'user',
+      content,
+      timestamp: new Date().toISOString()
+    })
+  }
+}
+```
+
 ## Contributing
 
 This template is open source and we welcome contributions! Please open a PR or issue through GitHub, and don't forget to join us in the [LiveKit Community Slack](https://livekit.io/join-slack)!

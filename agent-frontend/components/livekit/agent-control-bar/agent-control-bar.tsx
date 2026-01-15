@@ -137,7 +137,6 @@ export function AgentControlBar({
           {/* Toggle Screen Share */}
           {visibleControls.screenShare && (
             <TrackToggle
-              size="custom"
               className="h-12 w-12 rounded-full border-none bg-white/5 p-3 hover:bg-white/10"
               aria-label="Toggle screen share"
               source={Track.Source.ScreenShare}
@@ -149,7 +148,6 @@ export function AgentControlBar({
 
           {/* Toggle Transcript */}
           <Toggle
-            size="custom"
             className="h-12 w-12 rounded-full border-none bg-white/5 p-3 hover:bg-white/10"
             aria-label="Toggle transcript"
             pressed={chatOpen}
@@ -167,7 +165,6 @@ export function AgentControlBar({
         {/* Disconnect */}
         {visibleControls.leave && (
           <Button
-            size="custom"
             variant="destructive"
             onClick={onDisconnect}
             disabled={!isConnected}

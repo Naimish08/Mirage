@@ -3,6 +3,11 @@ import { usePersona } from '@/components/app/persona-context';
 import { cn } from '@/lib/utils';
 import { Check } from '@phosphor-icons/react/dist/ssr';
 
+interface WelcomeViewProps {
+  startButtonText: string;
+  onStartCall: () => void;
+}
+
 export const WelcomeView = ({
   startButtonText,
   onStartCall,

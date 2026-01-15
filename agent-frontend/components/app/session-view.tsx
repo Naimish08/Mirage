@@ -20,9 +20,12 @@ import {
 } from '@/components/livekit/agent-control-bar/agent-control-bar';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../livekit/scroll-area/scroll-area';
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
+import { createSession, saveMessage } from '@/lib/chat-storage';
 import { usePersona } from '@/components/app/persona-context';
 import { SessionSidebar } from '@/components/app/session-sidebar';
 import { api } from '@/lib/api';
+import { ChatCircleDots } from '@phosphor-icons/react';
 
 const MotionBottom = motion.create('div');
 
@@ -78,6 +81,41 @@ export const SessionView = ({
   const { messages: liveMessages } = useSessionMessages(session);
   const [chatOpen, setChatOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { user } = useSupabaseAuth();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Create session on mount
+  useEffect(() => {
+    if (user && !sessionId) {
+      createSession(user.id, 'New Chat').then((newSession) => {
+        if (newSession) {
+          setSessionId(newSession.id);
+        }
+      });
+    }
+  }, [user, sessionId]);
+
+  // Save messages to database
+  useEffect(() => {
+    if (sessionId && liveMessages.length > 0) {
+      const lastMessage = liveMessages[liveMessages.length - 1];
+      if (lastMessage) {
+        const role = lastMessage.from?.isLocal ? 'user' : 'assistant';
+        saveMessage(sessionId, role, lastMessage.message);
+
+        // Update session title with first user message
+        if (role === 'user' && liveMessages.length === 1) {
+          const title = lastMessage.message.length > 50
+            ? lastMessage.message.substring(0, 50) + '...'
+            : lastMessage.message;
+          // Update session title
+          api.updateSessionTitle(sessionId, title).then(() => {
+            setSidebarRefreshTrigger(prev => prev + 1);
+          }).catch(console.error);
+        }
+      }
+    }
+  }, [liveMessages, sessionId]);
 
   const { localParticipant } = useLocalParticipant();
   const { currentPersona } = usePersona();
@@ -86,7 +124,8 @@ export const SessionView = ({
   // --- Session History State ---
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
   const [historyMessages, setHistoryMessages] = useState<any[]>([]); // Using any[] for now to match structure roughly
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile toggle if needed, or desktop default
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile toggle
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
 
   // Fetch messages when a past session is selected
   useEffect(() => {
@@ -134,6 +173,7 @@ export const SessionView = ({
   const handleNewChat = () => {
     setSelectedSessionId(undefined);
     setHistoryMessages([]);
+    setSessionId(null); // Force creation of new session
     if (session.connectionState === 'connected') {
       handleDisconnect();
     }
@@ -186,8 +226,20 @@ export const SessionView = ({
         onSessionSelect={handleSessionSelect}
         onNewChat={handleNewChat}
         selectedSessionId={selectedSessionId}
-        className="hidden md:flex" // Hide on mobile for now or implement toggle
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        className="md:flex" // Show on desktop, toggleable on mobile
+        refreshTrigger={sidebarRefreshTrigger}
       />
+
+      {/* Mobile Sidebar Toggle */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white/70 hover:text-white hover:bg-black/70 transition-all duration-200"
+        title="Toggle History"
+      >
+        <ChatCircleDots className="size-5" />
+      </button>
 
       <div className="relative flex-1 h-full w-full overflow-hidden">
         {/* Immersive Background */}

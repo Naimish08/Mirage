@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { getAppConfig } from '@/lib/utils';
 import { ReactNode } from 'react';
+import { AuthGuard } from '@/components/auth-guard';
 
 interface LayoutProps {
     children: ReactNode;
@@ -26,7 +27,9 @@ export default async function Layout({ children }: LayoutProps) {
                     </a>
                 </span>
             </header>
-            {children}
+            <AuthGuard>
+                {children}
+            </AuthGuard>
         </>
     );
 }
