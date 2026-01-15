@@ -11,11 +11,12 @@ pydantic-settings>=2.0.0
 # Supabase Database & Auth
 supabase>=2.0.0
 
-# LiveKit API (for token generation - no system deps needed)
+# LiveKit API (for token generation)
 livekit-api>=0.6.0
 
-# Google Gemini
+# Google Gemini SDKs
 google-genai>=0.5.0
+google-generativeai>=0.8.0
 
 # Authentication
 python-jose[cryptography]>=3.3.0
@@ -24,9 +25,18 @@ PyJWT>=2.8.0
 # HTTP Client
 httpx>=0.26.0
 
-# Utilities
+# Utilities & Logging
 python-dotenv>=1.0.0
 structlog>=24.0.0
-
-# CORS
 python-multipart>=0.0.6
+
+# =============================================================================
+# MIRAGE AGENT WORKER DEPENDENCIES
+# =============================================================================
+
+# LiveKit Agents Framework
+livekit-agents>=0.8.0
+
+# LiveKit Plugins
+livekit-plugins-google>=0.5.0
+livekit-plugins-simli>=0.1.0

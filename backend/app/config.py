@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     DEFAULT_AGENT_TYPE: str = "teacher"
     
     # ==========================================================================
+    # Emotion Mapping Settings
+    # ==========================================================================
+    ENABLE_EMOTION_MAPPING: bool = True
+    EMOTION_CONFIDENCE_THRESHOLD: float = 0.6
+    EMOTION_ANALYSIS_INTERVAL: int = 5  # seconds
+    
+    # ==========================================================================
     # Computed Properties
     # ==========================================================================
     @property
