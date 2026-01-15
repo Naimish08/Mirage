@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException, status, Header
 
 from app.config import get_settings, Settings
 from app.core.database.connection import get_database_client
-from app.core.database.repositories import UserRepository, SessionRepository, MessageRepository
+from app.core.database.repositories import UserRepository, SessionRepository, MessageRepository, EmotionEventRepository
 from app.utils.supabase_auth import validate_supabase_token, SupabaseAuthError, extract_user_profile
 from app.utils.logging import get_logger
 
@@ -36,6 +36,12 @@ def get_message_repository() -> MessageRepository:
     """Get message repository instance."""
     db_client = get_database_client()
     return MessageRepository(db_client)
+
+
+def get_emotion_repository() -> EmotionEventRepository:
+    """Get emotion event repository instance."""
+    db_client = get_database_client()
+    return EmotionEventRepository(db_client)
 
 
 async def get_current_user(

@@ -15,7 +15,7 @@ from datetime import datetime
 
 from app.config import get_settings
 from app.utils.logging import configure_logging, get_logger
-from app.api.endpoints import health, auth, users, sessions, livekit, agents
+from app.api.endpoints import health, auth, users, sessions, livekit, agents, emotions
 
 # Configure logging
 configure_logging()
@@ -70,6 +70,8 @@ app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(sessions.router, prefix="/api/v1/sessions", tags=["sessions"])
 app.include_router(livekit.router, prefix="/api/v1/livekit", tags=["livekit"])
 app.include_router(agents.router, prefix="/api/v1/agents", tags=["agents"])
+app.include_router(emotions.router, prefix="/api/v1/emotions", tags=["emotions"])
+
 
 
 # Root endpoint
@@ -87,7 +89,8 @@ async def root():
             "users": "/api/v1/users",
             "sessions": "/api/v1/sessions",
             "livekit": "/api/v1/livekit",
-            "agents": "/api/v1/agents"
+            "agents": "/api/v1/agents",
+            "emotions": "/api/v1/emotions"
         },
         "timestamp": datetime.utcnow().isoformat()
     }
