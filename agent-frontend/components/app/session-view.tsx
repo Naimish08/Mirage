@@ -21,6 +21,8 @@ import {
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../livekit/scroll-area/scroll-area';
 import { usePersona } from '@/components/app/persona-context';
+import { useAuth } from '@/contexts/auth-context';
+import { SignOut } from '@phosphor-icons/react';
 
 const MotionBottom = motion.create('div');
 
@@ -86,7 +88,17 @@ export const SessionView = ({
 
   const { localParticipant } = useLocalParticipant();
   const { currentPersona } = usePersona();
+  const { signOut } = useAuth();
   const [transcription, setTranscription] = useState('');
+
+  const handleLogout = async () => {
+    // Disconnect from LiveKit session first
+    if (session.isConnected) {
+      await session.end();
+    }
+    // Then sign out from authentication
+    await signOut();
+  };
 
   // Fetch history
   useEffect(() => {
@@ -148,6 +160,16 @@ export const SessionView = ({
 
   return (
     <section className="bg-transparent relative z-10 h-full w-full overflow-hidden" {...props}>
+      {/* Logout Button */}
+      <button
+        onClick={handleLogout}
+        className="fixed top-6 right-6 z-50 flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg text-white/70 hover:text-white transition-all duration-200 backdrop-blur-sm"
+        title="Sign Out"
+      >
+        <SignOut weight="bold" className="size-5" />
+        <span className="text-sm font-medium">Logout</span>
+      </button>
+
       {/* Immersive Background */}
       <div className="fixed inset-0 -z-10 h-full w-full bg-black">
         <img

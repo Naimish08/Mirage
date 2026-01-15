@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { getAppConfig } from '@/lib/utils';
+import { LogoutButton } from '@/components/auth/logout-button';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -27,17 +28,20 @@ export default async function Layout({ children }: LayoutProps) {
             className="hidden size-6 dark:block"
           />
         </a>
-        <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
-          Built with{' '}
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://docs.livekit.io/agents"
-            className="underline underline-offset-4"
-          >
-            LiveKit Agents
-          </a>
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
+            Built with{' '}
+            <a
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://docs.livekit.io/agents"
+              className="underline underline-offset-4"
+            >
+              LiveKit Agents
+            </a>
+          </span>
+          <LogoutButton />
+        </div>
       </header>
 
       {children}
