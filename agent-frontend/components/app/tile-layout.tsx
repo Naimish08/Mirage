@@ -8,6 +8,7 @@ import {
   useLocalParticipant,
   useTracks,
   useVoiceAssistant,
+  useTrackVolume, // Import useTrackVolume
 } from '@livekit/components-react';
 import { cn } from '@/lib/utils';
 import { usePersona } from '@/components/app/persona-context';
@@ -89,8 +90,9 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
   const isScreenShareEnabled = screenShareTrack && !screenShareTrack.publication.isMuted;
   const hasSecondTile = isCameraEnabled || isScreenShareEnabled;
 
+  const agentVolume = useTrackVolume(agentAudioTrack as any); // Track volume for lip sync
   const animationDelay = chatOpen ? 0 : 0.15;
-  const isAvatar = false; // agentVideoTrack !== undefined && agentVideoTrack.source === Track.Source.Camera;
+  const isAvatar = true; // Enable Avatar Mode
   const videoWidth = agentVideoTrack?.publication.dimensions?.width ?? 0;
   const videoHeight = agentVideoTrack?.publication.dimensions?.height ?? 0;
 
@@ -163,6 +165,8 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
                       'radial-gradient(circle, rgba(0, 0, 0, 1) 0, rgba(0, 0, 0, 1) 500px, transparent 500px)',
                     filter: 'blur(0px)',
                     borderRadius: chatOpen ? 6 : 12,
+                    scale: 1 + Math.min(agentVolume * 0.5, 0.1), // Gentle pulse
+                    // filter: `brightness(${1 + agentVolume}) contrast(${1 + agentVolume * 0.2})`, // Glow effect
                   }}
                   transition={{
                     ...ANIMATION_TRANSITION,
@@ -171,25 +175,32 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
                       duration: 1,
                     },
                     filter: {
-                      duration: 1,
+                      duration: 0.1, // Fast response for lip sync feel
                     },
+                    scale: {
+                      duration: 0.1,
+                    }
                   }}
                   className={cn(
-                    'relative overflow-hidden bg-black drop-shadow-xl/80',
+                    'relative overflow-hidden bg-black drop-shadow-xl/80 transition-all duration-100',
                     chatOpen ? 'h-[90px]' : 'h-auto w-full'
                   )}
                 >
                   <img
                     src={currentPersona.image}
-                    alt="Agent Placeholder"
-                    className="absolute inset-0 h-full w-full object-cover -z-10 opacity-60"
+                    alt="Agent Avatar"
+                    className="absolute inset-0 h-full w-full object-cover -z-10 opacity-80"
                   />
-                  <VideoTrack
-                    width={videoWidth}
-                    height={videoHeight}
-                    trackRef={agentVideoTrack}
-                    className={cn(chatOpen && 'size-[90px] object-cover')}
-                  />
+                  {agentVideoTrack ? (
+                    <VideoTrack
+                      width={videoWidth}
+                      height={videoHeight}
+                      trackRef={agentVideoTrack}
+                      className={cn(chatOpen && 'size-[90px] object-cover')}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-transparent" />
+                  )}
                 </MotionContainer>
               )}
             </AnimatePresence>
