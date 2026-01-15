@@ -21,6 +21,8 @@ import {
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../livekit/scroll-area/scroll-area';
 import { usePersona } from '@/components/app/persona-context';
+import { SessionSidebar } from '@/components/app/session-sidebar';
+import { api } from '@/lib/api';
 
 const MotionBottom = motion.create('div');
 
@@ -42,7 +44,7 @@ const BOTTOM_VIEW_MOTION_PROPS = {
     duration: 0.3,
     delay: 0.5,
     ease: 'easeOut',
-  },
+  } as any,
 };
 
 interface FadeProps {
@@ -73,13 +75,59 @@ export const SessionView = ({
   ...props
 }: React.ComponentProps<'section'> & SessionViewProps) => {
   const session = useSessionContext();
-  const { messages } = useSessionMessages(session);
+  const { messages: liveMessages } = useSessionMessages(session);
   const [chatOpen, setChatOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const { localParticipant } = useLocalParticipant();
   const { currentPersona } = usePersona();
   const [transcription, setTranscription] = useState('');
+
+  // --- Session History State ---
+  const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
+  const [historyMessages, setHistoryMessages] = useState<any[]>([]); // Using any[] for now to match structure roughly
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile toggle if needed, or desktop default
+
+  // Fetch messages when a past session is selected
+  useEffect(() => {
+    if (selectedSessionId) {
+      const loadHistory = async () => {
+        try {
+          const { messages } = await api.getSessionMessages(selectedSessionId);
+          // Transform backend messages to ReceivedMessage format if needed
+          // Backend: { id, role, content, ... }
+          // Frontend expects: { id, message, from: { isLocal: boolean }, ... }
+          const formatted = messages.map(m => ({
+            id: m.id,
+            message: m.content,
+            timestamp: new Date(m.created_at).getTime(),
+            from: { isLocal: m.role === 'user' },
+            type: 'chatMessage'
+          }));
+          setHistoryMessages(formatted);
+        } catch (e) {
+          console.error("Failed to load history", e);
+        }
+      };
+      loadHistory();
+    } else {
+      setHistoryMessages([]);
+    }
+  }, [selectedSessionId]);
+
+  const handleSessionSelect = (s: any) => {
+    setSelectedSessionId(s.id);
+    setChatOpen(true); // Auto-open chat to show legacy messages
+  };
+
+  const handleNewChat = () => {
+    setSelectedSessionId(undefined);
+    setHistoryMessages([]);
+    if (session.connectionState === 'connected') {
+      (session as any).disconnect();
+    }
+  };
+  // -----------------------------
 
   const localMicrophoneTrack = useMemo(() => ({
     source: Track.Source.Microphone,
@@ -94,11 +142,6 @@ export const SessionView = ({
       if (!lastSegment.final) {
         setTranscription(lastSegment.text);
       } else {
-        // Option: If we want it to clear or stick until next message.
-        // For now, let's keep it visible until new speech starts or maybe clear it?
-        // Actually, if it's final, the backend SHOULD have received it and hopefully sent a chat message back?
-        // If not, we might want to just keep showing it.
-        // Let's just show the LATEST text regardless of finality for now to ensure visibility.
         setTranscription(lastSegment.text);
       }
     }
@@ -117,59 +160,81 @@ export const SessionView = ({
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [liveMessages, historyMessages]); // Scroll on both
+
+  // Determine which messages to show
+  const displayMessages = selectedSessionId ? historyMessages : liveMessages;
+  const showLiveElements = !selectedSessionId; // Hide video/controls if viewing history? Or keep them?
+  // User request: "hop on to prevois calls... connected to backend... looks good... prev like a message app"
+  // Usually history view is read-only or distinct. Let's keep it simple: Overlap the video.
 
   return (
-    <section className="bg-transparent relative z-10 h-full w-full overflow-hidden" {...props}>
-      {/* Immersive Background */}
-      <div className="fixed inset-0 -z-10 h-full w-full bg-black">
-        <img
-          src={currentPersona.image}
-          alt="immersive-bg"
-          className="h-full w-full object-cover opacity-50 blur-[100px] hover:blur-[80px] transition-all duration-1000 scale-110 brightness-90 contrast-125 saturate-200"
-        />
-        <div className="absolute inset-0 bg-black/10" />
-      </div>
+    <section className="bg-transparent relative z-10 h-full w-full overflow-hidden flex" {...props}>
+      {/* Sidebar */}
+      <SessionSidebar
+        onSessionSelect={handleSessionSelect}
+        onNewChat={handleNewChat}
+        selectedSessionId={selectedSessionId}
+        className="hidden md:flex" // Hide on mobile for now or implement toggle
+      />
 
-      {/* Chat Transcript */}
-      <div
-        className={cn(
-          'fixed inset-0 grid grid-cols-1 grid-rows-1',
-          !chatOpen && 'pointer-events-none'
-        )}
-      >
-        <Fade top className="absolute inset-x-4 top-0 h-40" />
-        <ScrollArea ref={scrollAreaRef} className="px-4 pt-40 pb-[150px] md:px-6 md:pb-[200px]">
-          <ChatTranscript
-            hidden={!chatOpen}
-            messages={messages}
-            lastLocalMessage={transcription}
-            className="mx-auto max-w-2xl space-y-3 transition-opacity duration-300 ease-out"
+      <div className="relative flex-1 h-full w-full overflow-hidden">
+        {/* Immersive Background */}
+        <div className="fixed inset-0 -z-10 h-full w-full bg-black">
+          <img
+            src={currentPersona.image}
+            alt="immersive-bg"
+            className="h-full w-full object-cover opacity-50 blur-[100px] hover:blur-[80px] transition-all duration-1000 scale-110 brightness-90 contrast-125 saturate-200"
           />
-        </ScrollArea>
-      </div>
-
-      {/* Tile Layout */}
-      <TileLayout chatOpen={chatOpen} />
-
-      {/* Bottom */}
-      <MotionBottom
-        {...BOTTOM_VIEW_MOTION_PROPS}
-        className="fixed inset-x-3 bottom-0 z-50 md:inset-x-12"
-      >
-        {appConfig.isPreConnectBufferEnabled && (
-          <PreConnectMessage messages={messages} className="pb-4" />
-        )}
-        <div className="bg-background relative mx-auto max-w-2xl pb-3 md:pb-12">
-          <Fade bottom className="absolute inset-x-0 top-0 h-4 -translate-y-full" />
-          <AgentControlBar
-            controls={controls}
-            isConnected={session.isConnected}
-            onDisconnect={session.end}
-            onChatOpenChange={setChatOpen}
-          />
+          <div className="absolute inset-0 bg-black/10" />
         </div>
-      </MotionBottom>
+
+        {/* Chat Transcript - ALWAYS visible if in history mode, or if chatOpen in live mode */}
+        <div
+          className={cn(
+            'absolute inset-0 grid grid-cols-1 grid-rows-1 z-20',
+            (!chatOpen && showLiveElements) && 'pointer-events-none' // Pass through clicks if chat closed AND in live mode
+          )}
+        >
+          <Fade top className="absolute inset-x-4 top-0 h-40 z-30" />
+          <ScrollArea ref={scrollAreaRef} className="px-4 pt-40 pb-[150px] md:px-6 md:pb-[200px] h-full">
+            {/* Added h-full to confirm scroll area takes space */}
+            <ChatTranscript
+              hidden={!chatOpen && showLiveElements} // Hide if chat closed AND live. Always show if history.
+              messages={displayMessages}
+              lastLocalMessage={showLiveElements ? transcription : undefined}
+              className="mx-auto max-w-2xl space-y-3 transition-opacity duration-300 ease-out"
+            />
+          </ScrollArea>
+        </div>
+
+        {/* Live Mode Elements */}
+        {showLiveElements && (
+          <>
+            {/* Tile Layout */}
+            <TileLayout chatOpen={chatOpen} />
+
+            {/* Bottom Controls */}
+            <MotionBottom
+              {...BOTTOM_VIEW_MOTION_PROPS}
+              className="fixed inset-x-3 bottom-0 z-50 md:inset-x-12 md:pl-[280px]"
+            >
+              {appConfig.isPreConnectBufferEnabled && (
+                <PreConnectMessage messages={liveMessages} className="pb-4" />
+              )}
+              <div className="bg-background relative mx-auto max-w-2xl pb-3 md:pb-12">
+                <Fade bottom className="absolute inset-x-0 top-0 h-4 -translate-y-full" />
+                <AgentControlBar
+                  controls={controls}
+                  isConnected={session.isConnected}
+                  onDisconnect={() => (session as any).disconnect()}
+                  onChatOpenChange={setChatOpen}
+                />
+              </div>
+            </MotionBottom>
+          </>
+        )}
+      </div>
     </section>
   );
 };
