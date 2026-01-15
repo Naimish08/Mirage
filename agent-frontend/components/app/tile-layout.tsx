@@ -88,7 +88,7 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
 
   const isCameraEnabled = cameraTrack && !cameraTrack.publication.isMuted;
   const isScreenShareEnabled = screenShareTrack && !screenShareTrack.publication.isMuted;
-  const hasSecondTile = isCameraEnabled || isScreenShareEnabled;
+  const hasSecondTile = (isCameraEnabled || isScreenShareEnabled) && !chatOpen;
 
   const agentVolume = useTrackVolume(agentAudioTrack as any); // Track volume for lip sync
   const animationDelay = chatOpen ? 0 : 0.15;
@@ -164,7 +164,7 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
                     maskImage:
                       'radial-gradient(circle, rgba(0, 0, 0, 1) 0, rgba(0, 0, 0, 1) 500px, transparent 500px)',
                     filter: 'blur(0px)',
-                    borderRadius: chatOpen ? 6 : 12,
+                    borderRadius: chatOpen ? '45px' : '12px',
                     scale: 1 + Math.min(agentVolume * 0.5, 0.1), // Gentle pulse
                     // filter: `brightness(${1 + agentVolume}) contrast(${1 + agentVolume * 0.2})`, // Glow effect
                   }}
@@ -182,21 +182,16 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
                     }
                   }}
                   className={cn(
-                    'relative overflow-hidden bg-black drop-shadow-xl/80 transition-all duration-100',
-                    chatOpen ? 'h-[90px]' : 'h-auto w-full'
+                    'relative overflow-hidden bg-black drop-shadow-xl/80',
+                    chatOpen ? 'h-[90px] w-[90px] mx-auto rounded-full' : 'h-auto w-full rounded-xl'
                   )}
                 >
-                  <img
-                    src={currentPersona.image}
-                    alt="Agent Avatar"
-                    className="absolute inset-0 h-full w-full object-cover -z-10 opacity-80"
-                  />
-                  {agentVideoTrack ? (
+                  {agentVideoTrack && agentVideoTrack.source === Track.Source.Camera ? (
                     <VideoTrack
                       width={videoWidth}
                       height={videoHeight}
                       trackRef={agentVideoTrack}
-                      className={cn(chatOpen && 'size-[90px] object-cover')}
+                      className="h-full w-full object-cover"
                     />
                   ) : (
                     <div className="absolute inset-0 bg-transparent" />
