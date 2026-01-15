@@ -64,22 +64,58 @@ export function Fade({ top = false, bottom = false, className }: FadeProps) {
   );
 }
 
+import { sessionsAPI, Message } from '@/lib/api-client';
+
+// ...
+
 interface SessionViewProps {
   appConfig: AppConfig;
+  sessionId: string | null;
 }
 
 export const SessionView = ({
   appConfig,
+  sessionId,
   ...props
 }: React.ComponentProps<'section'> & SessionViewProps) => {
   const session = useSessionContext();
-  const { messages } = useSessionMessages(session);
+  const { messages: liveMessages } = useSessionMessages(session);
+  const [history, setHistory] = useState<any[]>([]); // Using any for ReceivedMessage to avoid complex mocking
   const [chatOpen, setChatOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const { localParticipant } = useLocalParticipant();
   const { currentPersona } = usePersona();
   const [transcription, setTranscription] = useState('');
+
+  // Fetch history
+  useEffect(() => {
+    if (sessionId) {
+      sessionsAPI.getMessages(sessionId).then(({ messages }) => {
+        const mappedMessages = messages.map((msg: Message) => ({
+          id: msg.id,
+          message: msg.content,
+          timestamp: new Date(msg.created_at).getTime(),
+          from: {
+            identity: msg.role === 'user' ? 'user' : 'agent',
+            isLocal: msg.role === 'user',
+            name: msg.role === 'user' ? 'You' : currentPersona.name
+          },
+          type: 'chatMessage',
+        }));
+        setHistory(mappedMessages.reverse()); // Messages come newest first usually? Check API. 
+        // If API returns newest first, reverse. If oldest first, don't.
+        // Usually SQL 'limit offset' with default sort... 
+        // My migration didn't specify sort in index?
+        // Repo implementation: "order by created_at desc" is common.
+        // If desc, then newest first. 
+        // Start listing from offset 0 (newest). 
+        // So we need to reverse to show chronologically.
+      }).catch(console.error);
+    }
+  }, [sessionId, currentPersona.name]);
+
+  const allMessages = [...history, ...liveMessages];
 
   const localMicrophoneTrack = useMemo(() => ({
     source: Track.Source.Microphone,
@@ -91,16 +127,7 @@ export const SessionView = ({
   useEffect(() => {
     if (segments.length > 0) {
       const lastSegment = segments[segments.length - 1];
-      if (!lastSegment.final) {
-        setTranscription(lastSegment.text);
-      } else {
-        // Option: If we want it to clear or stick until next message.
-        // For now, let's keep it visible until new speech starts or maybe clear it?
-        // Actually, if it's final, the backend SHOULD have received it and hopefully sent a chat message back?
-        // If not, we might want to just keep showing it.
-        // Let's just show the LATEST text regardless of finality for now to ensure visibility.
-        setTranscription(lastSegment.text);
-      }
+      setTranscription(lastSegment.text);
     }
   }, [segments]);
 
@@ -117,7 +144,7 @@ export const SessionView = ({
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [allMessages]);
 
   return (
     <section className="bg-transparent relative z-10 h-full w-full overflow-hidden" {...props}>
@@ -142,7 +169,7 @@ export const SessionView = ({
         <ScrollArea ref={scrollAreaRef} className="px-4 pt-40 pb-[150px] md:px-6 md:pb-[200px]">
           <ChatTranscript
             hidden={!chatOpen}
-            messages={messages}
+            messages={allMessages as any}
             lastLocalMessage={transcription}
             className="mx-auto max-w-2xl space-y-3 transition-opacity duration-300 ease-out"
           />
@@ -155,10 +182,11 @@ export const SessionView = ({
       {/* Bottom */}
       <MotionBottom
         {...BOTTOM_VIEW_MOTION_PROPS}
+        transition={{ ...BOTTOM_VIEW_MOTION_PROPS.transition, ease: 'easeOut' as any }}
         className="fixed inset-x-3 bottom-0 z-50 md:inset-x-12"
       >
         {appConfig.isPreConnectBufferEnabled && (
-          <PreConnectMessage messages={messages} className="pb-4" />
+          <PreConnectMessage messages={allMessages as any} className="pb-4" />
         )}
         <div className="bg-background relative mx-auto max-w-2xl pb-3 md:pb-12">
           <Fade bottom className="absolute inset-x-0 top-0 h-4 -translate-y-full" />
