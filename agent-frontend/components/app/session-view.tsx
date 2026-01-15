@@ -195,7 +195,7 @@ export const SessionView = ({
           <img
             src={currentPersona.image}
             alt="immersive-bg"
-            className="h-full w-full object-cover opacity-50 blur-[100px] hover:blur-[80px] transition-all duration-1000 scale-110 brightness-90 contrast-125 saturate-200"
+            className="h-full w-full object-cover opacity-90 blur-[100px] hover:blur-[80px] transition-all duration-1000 scale-110 brightness-90 contrast-125 saturate-200"
           />
           <div className="absolute inset-0 bg-black/10" />
         </div>
@@ -203,7 +203,7 @@ export const SessionView = ({
         {/* Chat Transcript - ALWAYS visible if in history mode, or if chatOpen in live mode */}
         <div
           className={cn(
-            'absolute inset-0 grid grid-cols-1 grid-rows-1 z-20',
+            'fixed inset-0 grid grid-cols-1 grid-rows-1 z-[60] md:pl-[280px]',
             (!chatOpen && showLiveElements) && 'pointer-events-none' // Pass through clicks if chat closed AND in live mode
           )}
         >
@@ -211,10 +211,10 @@ export const SessionView = ({
           <ScrollArea ref={scrollAreaRef} className="px-4 pt-40 pb-[150px] md:px-6 md:pb-[200px] h-full">
             {/* Added h-full to confirm scroll area takes space */}
             <ChatTranscript
-              hidden={!chatOpen && showLiveElements} // Hide if chat closed AND live. Always show if history.
+              hidden={!chatOpen}
               messages={displayMessages}
               lastLocalMessage={showLiveElements ? transcription : undefined}
-              className="mx-auto max-w-2xl space-y-3 transition-opacity duration-300 ease-out"
+              className="mx-auto max-w-2xl space-y-3 transition-opacity duration-300 ease-out text-white"
             />
           </ScrollArea>
         </div>
@@ -228,7 +228,7 @@ export const SessionView = ({
             {/* Bottom Controls */}
             <MotionBottom
               {...BOTTOM_VIEW_MOTION_PROPS}
-              className="fixed inset-x-3 bottom-0 z-50 md:inset-x-12 md:pl-[280px]"
+              className="fixed inset-x-3 bottom-0 z-[70] md:inset-x-12 md:pl-[280px]"
             >
               {appConfig.isPreConnectBufferEnabled && (
                 <PreConnectMessage messages={liveMessages} className="pb-4" />
