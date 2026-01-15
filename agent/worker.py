@@ -27,9 +27,11 @@ from livekit.plugins import google, simli
 try:
     from agent.agents.registry import get_agent_config
     from agent.emotion import EmotionAwareSessionHandler
+    from agent.backend_client import BackendClient
 except ModuleNotFoundError:
     from agents.registry import get_agent_config
     from emotion import EmotionAwareSessionHandler
+    from backend_client import BackendClient
 
 # Load environment from parent directory
 load_dotenv("../.env")
@@ -80,6 +82,16 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"Using agent type: {agent_type}")
     if session_id:
         logger.info(f"Session ID: {session_id}")
+    else:
+        logger.warning("⚠️  No session_id in room metadata - messages will not be persisted")
+    
+    # Initialize backend client for message storage
+    backend_client = None
+    if session_id and auth_token:
+        backend_client = BackendClient(auth_token=auth_token)
+        logger.info("✅ Backend client initialized for message storage")
+    else:
+        logger.warning("⚠️  Backend client not initialized - missing session_id or auth_token")
     
     # Get agent config
     agent_config = get_agent_config(agent_type)
@@ -137,6 +149,52 @@ async def entrypoint(ctx: JobContext):
     # Create the agent instance
     agent = MirageAgent(agent_type)
     
+    # Set up message saving hooks
+    if backend_client and session_id:
+        # Hook into user speech to save user messages
+        @session.on("user_speech_committed")
+        def on_user_speech(message):
+            """Save user message to backend."""
+            async def save_user_msg():
+                try:
+                    text = message.content if hasattr(message, 'content') else str(message)
+                    
+                    if text and len(text.strip()) >= 3:
+                        # Save user message
+                        await backend_client.save_message(
+                            session_id=session_id,
+                            role="user",
+                            content=text,
+                            metadata={"source": "voice"}
+                        )
+                        logger.info(f"💾 Saved user message")
+                except Exception as e:
+                    logger.error(f"Error saving user message: {e}")
+            
+            asyncio.create_task(save_user_msg())
+        
+        # Hook into agent response to save assistant messages
+        @session.on("agent_speech_committed")
+        def on_agent_speech(message):
+            """Save agent message to backend."""
+            async def save_agent_msg():
+                try:
+                    text = message.content if hasattr(message, 'content') else str(message)
+                    
+                    if text and len(text.strip()) >= 3:
+                        # Save assistant message
+                        await backend_client.save_message(
+                            session_id=session_id,
+                            role="assistant",
+                            content=text,
+                            metadata={"agent_type": agent_type}
+                        )
+                        logger.info(f"💾 Saved assistant message")
+                except Exception as e:
+                    logger.error(f"Error saving assistant message: {e}")
+            
+            asyncio.create_task(save_agent_msg())
+    
     # Set up emotion-aware message handling
     if emotion_handler:
         # Store original instructions
@@ -144,31 +202,34 @@ async def entrypoint(ctx: JobContext):
         
         # Hook into session to detect emotions and adapt personality
         @session.on("user_speech_committed")
-        async def on_user_speech(message):
+        def on_user_speech_emotion(message):
             """Process user speech for emotion detection."""
-            try:
-                # Extract text from message
-                text = message.content if hasattr(message, 'content') else str(message)
-                
-                if not text or len(text.strip()) < 3:
-                    return
-                
-                # Detect emotion
-                emotion_data = await emotion_handler.process_user_message(text)
-                
-                if emotion_data and emotion_data["emotion"] != "neutral":
-                    # Adapt instructions based on emotion
-                    adapted_instructions = emotion_handler.get_adapted_instructions(
-                        base_instructions,
-                        emotion_data
-                    )
+            async def process_emotion():
+                try:
+                    # Extract text from message
+                    text = message.content if hasattr(message, 'content') else str(message)
                     
-                    # Update agent instructions for next response
-                    agent.instructions = adapted_instructions
+                    if not text or len(text.strip()) < 3:
+                        return
                     
-                    logger.info(f"📊 Adapted personality for {emotion_data['emotion']} emotion")
-            except Exception as e:
-                logger.error(f"Error in emotion detection: {e}")
+                    # Detect emotion
+                    emotion_data = await emotion_handler.process_user_message(text)
+                    
+                    if emotion_data and emotion_data["emotion"] != "neutral":
+                        # Adapt instructions based on emotion
+                        adapted_instructions = emotion_handler.get_adapted_instructions(
+                            base_instructions,
+                            emotion_data
+                        )
+                        
+                        # Update agent instructions for next response
+                        agent.instructions = adapted_instructions
+                        
+                        logger.info(f"📊 Adapted personality for {emotion_data['emotion']} emotion")
+                except Exception as e:
+                    logger.error(f"Error in emotion detection: {e}")
+            
+            asyncio.create_task(process_emotion())
     
     # Start the session
     await session.start(

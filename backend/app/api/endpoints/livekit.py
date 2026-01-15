@@ -2,12 +2,14 @@
 LiveKit token generation endpoints for Mirage backend.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from __future__ import annotations
+
 from typing import Dict, Any, Optional
 from datetime import datetime
 import time
 
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from pydantic import BaseModel
 from livekit.api import AccessToken, VideoGrants
 
 from app.config import get_settings
@@ -37,6 +39,7 @@ class RoomTokenResponse(BaseModel):
 @router.post("/token", response_model=RoomTokenResponse)
 async def get_room_token(
     request: RoomTokenRequest,
+    http_request: Request,
     current_user: Dict[str, Any] = Depends(get_current_user),
     session_repo: SessionRepository = Depends(get_session_repository)
 ):
@@ -94,11 +97,20 @@ async def get_room_token(
             can_subscribe=True,
         ))
         
-        # Add metadata for agent
-        token.with_metadata({
+        # Extract user's auth token from request header
+        auth_header = http_request.headers.get("authorization", "")
+        auth_token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
+        
+        # Add metadata for agent worker
+        # This will be accessible in the LiveKit room
+        import json
+        metadata_dict = {
             "agent_type": request.agent_type,
-            "session_id": session_id
-        })
+            "session_id": session_id,
+            "auth_token": auth_token  # Pass Supabase token to agent
+        }
+        
+        token.with_metadata(json.dumps(metadata_dict))
         
         jwt_token = token.to_jwt()
         

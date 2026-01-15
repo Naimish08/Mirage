@@ -2,6 +2,14 @@ import { Button } from '@/components/livekit/button';
 import { usePersona } from '@/components/app/persona-context';
 import { cn } from '@/lib/utils';
 import { Check } from '@phosphor-icons/react/dist/ssr';
+import { useAuth } from '@/contexts/auth-context';
+import { SignOut } from '@phosphor-icons/react/dist/ssr';
+
+interface WelcomeViewProps {
+  startButtonText: string;
+  onStartCall: () => void;
+}
+
 
 export const WelcomeView = ({
   startButtonText,
@@ -9,9 +17,20 @@ export const WelcomeView = ({
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
   const { currentPersona, setPersona, personas } = usePersona();
+  const { signOut } = useAuth();
 
   return (
     <div ref={ref} className="flex min-h-full flex-col items-center justify-center p-4">
+      {/* Logout Button */}
+      <button
+        onClick={signOut}
+        className="fixed top-6 right-6 z-50 flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg text-white/70 hover:text-white transition-all duration-200"
+        title="Sign Out"
+      >
+        <SignOut weight="bold" className="size-5" />
+        <span className="text-sm font-medium">Logout</span>
+      </button>
+
       <section className="bg-background flex flex-col items-center justify-center text-center max-w-4xl mx-auto">
         <h2 className="mb-2 text-2xl font-bold tracking-tight">Choose Your Assistant</h2>
         <p className="text-muted-foreground mb-8 max-w-prose text-sm">
