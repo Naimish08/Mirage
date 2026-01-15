@@ -120,11 +120,22 @@ export const SessionView = ({
     setChatOpen(true); // Auto-open chat to show legacy messages
   };
 
+  const handleDisconnect = () => {
+    console.log("Attempting to disconnect...");
+    if ((session as any).disconnect) {
+      (session as any).disconnect();
+    } else if ((session as any).room) {
+      (session as any).room.disconnect();
+    } else {
+      console.warn("No disconnect method found on session object");
+    }
+  };
+
   const handleNewChat = () => {
     setSelectedSessionId(undefined);
     setHistoryMessages([]);
     if (session.connectionState === 'connected') {
-      (session as any).disconnect();
+      handleDisconnect();
     }
   };
   // -----------------------------
@@ -227,7 +238,7 @@ export const SessionView = ({
                 <AgentControlBar
                   controls={controls}
                   isConnected={session.isConnected}
-                  onDisconnect={() => (session as any).disconnect()}
+                  onDisconnect={handleDisconnect}
                   onChatOpenChange={setChatOpen}
                 />
               </div>
