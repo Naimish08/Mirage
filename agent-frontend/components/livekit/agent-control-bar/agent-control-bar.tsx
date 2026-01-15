@@ -31,9 +31,6 @@ export interface AgentControlBarProps extends UseInputControlsProps {
   onDeviceError?: (error: { source: Track.Source; error: Error }) => void;
 }
 
-/**
- * A control bar specifically designed for voice assistant interfaces
- */
 export function AgentControlBar({
   controls,
   saveUserChoices = true,
@@ -84,25 +81,21 @@ export function AgentControlBar({
   const isAgentAvailable = participants.some((p) => p.isAgent);
 
   return (
-    <div
-      aria-label="Voice assistant controls"
-      className={cn(
-        'bg-background border-input/50 dark:border-muted flex flex-col rounded-[31px] border p-3 drop-shadow-md/3',
-        className
-      )}
-      {...props}
-    >
-      {/* Chat Input */}
+    <div className={cn('flex flex-col items-center gap-4', className)} {...props}>
+      {/* Chat Input (Floating above) */}
       {visibleControls.chat && (
-        <ChatInput
-          chatOpen={chatOpen}
-          isAgentAvailable={isAgentAvailable}
-          onSend={handleSendMessage}
-        />
+        <div className={cn("w-full transition-all duration-300", chatOpen ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none absolute bottom-full mb-4")}>
+          <ChatInput
+            chatOpen={chatOpen}
+            isAgentAvailable={isAgentAvailable}
+            onSend={handleSendMessage}
+          />
+        </div>
       )}
 
-      <div className="flex gap-1">
-        <div className="flex grow gap-1">
+      {/* Main Control Dock */}
+      <div className="flex items-center gap-3 rounded-full bg-black/40 p-2 backdrop-blur-xl ring-1 ring-white/10 transition-all hover:bg-black/50 hover:ring-white/20 hover:shadow-2xl">
+        <div className="flex gap-2">
           {/* Toggle Microphone */}
           {visibleControls.microphone && (
             <TrackSelector
@@ -115,6 +108,7 @@ export function AgentControlBar({
               onPressedChange={microphoneToggle.toggle}
               onMediaDeviceError={handleMicrophoneDeviceSelectError}
               onActiveDeviceChange={handleAudioDeviceChange}
+              className="h-12 w-12 rounded-full border-none bg-white/5 hover:bg-white/10"
             />
           )}
 
@@ -136,14 +130,15 @@ export function AgentControlBar({
               onPressedChange={cameraToggle.toggle}
               onMediaDeviceError={handleCameraDeviceSelectError}
               onActiveDeviceChange={handleVideoDeviceChange}
+              className="h-12 w-12 rounded-full border-none bg-white/5 hover:bg-white/10"
             />
           )}
 
           {/* Toggle Screen Share */}
           {visibleControls.screenShare && (
             <TrackToggle
-              size="icon"
-              variant="secondary"
+              size="custom"
+              className="h-12 w-12 rounded-full border-none bg-white/5 p-3 hover:bg-white/10"
               aria-label="Toggle screen share"
               source={Track.Source.ScreenShare}
               pressed={screenShareToggle.enabled}
@@ -154,27 +149,32 @@ export function AgentControlBar({
 
           {/* Toggle Transcript */}
           <Toggle
-            size="icon"
-            variant="secondary"
+            size="custom"
+            className="h-12 w-12 rounded-full border-none bg-white/5 p-3 hover:bg-white/10"
             aria-label="Toggle transcript"
             pressed={chatOpen}
             onPressedChange={handleToggleTranscript}
           >
-            <ChatTextIcon weight="bold" />
+            <ChatTextIcon weight="bold" className="h-6 w-6" />
           </Toggle>
         </div>
+
+        {/* Divider */}
+        {(visibleControls.leave) && (
+          <div className="h-8 w-[1px] bg-white/10 mx-1" />
+        )}
 
         {/* Disconnect */}
         {visibleControls.leave && (
           <Button
+            size="custom"
             variant="destructive"
             onClick={onDisconnect}
             disabled={!isConnected}
-            className="font-mono"
+            className="h-12 rounded-full px-6 font-semibold tracking-wide"
           >
-            <PhoneDisconnectIcon weight="bold" />
-            <span className="hidden md:inline">END CALL</span>
-            <span className="inline md:hidden">END</span>
+            <PhoneDisconnectIcon weight="fill" className="mr-2 h-5 w-5" />
+            END
           </Button>
         )}
       </div>

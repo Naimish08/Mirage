@@ -242,3 +242,4 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
     </div>
   );
 }
+
