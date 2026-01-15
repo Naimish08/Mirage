@@ -16,6 +16,7 @@ interface SessionSidebarProps {
     isOpen?: boolean;
     onToggle?: () => void;
     className?: string;
+    refreshTrigger?: number; // Add refresh trigger
 }
 
 export function SessionSidebar({
@@ -25,6 +26,7 @@ export function SessionSidebar({
     isOpen = true,
     onToggle,
     className,
+    refreshTrigger,
 }: SessionSidebarProps) {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ export function SessionSidebar({
         if (isOpen) {
             fetchSessions();
         }
-    }, [isOpen]);
+    }, [isOpen, refreshTrigger]);
 
     const handleDelete = async (e: React.MouseEvent, sessionId: string) => {
         e.stopPropagation();
@@ -74,13 +76,24 @@ export function SessionSidebar({
                     <span className="text-lg font-bold text-white tracking-tight">
                         History
                     </span>
-                    <button
-                        onClick={onNewChat}
-                        className="group flex items-center justify-center p-2 rounded-full bg-white/5 hover:bg-cyan-500/20 text-white/70 hover:text-cyan-400 transition-all duration-300 ring-1 ring-white/10 hover:ring-cyan-500/30"
-                        title="New Chat"
-                    >
-                        <Plus className="size-5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={onNewChat}
+                            className="group flex items-center justify-center p-2 rounded-full bg-white/5 hover:bg-cyan-500/20 text-white/70 hover:text-cyan-400 transition-all duration-300 ring-1 ring-white/10 hover:ring-cyan-500/30"
+                            title="New Chat"
+                        >
+                            <Plus className="size-5" />
+                        </button>
+                        {onToggle && (
+                            <button
+                                onClick={onToggle}
+                                className="md:hidden group flex items-center justify-center p-2 rounded-full bg-white/5 hover:bg-red-500/20 text-white/70 hover:text-red-400 transition-all duration-300 ring-1 ring-white/10 hover:ring-red-500/30"
+                                title="Close History"
+                            >
+                                <CaretLeft className="size-5" />
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Session List */}

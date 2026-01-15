@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { getAppConfig } from '@/lib/utils';
 import { ReactNode } from 'react';
+import { AuthGuard } from '@/components/auth-guard';
 
 interface LayoutProps {
     children: ReactNode;
@@ -20,13 +21,13 @@ export default async function Layout({ children }: LayoutProps) {
                     className="scale-100 transition-transform duration-300 hover:scale-110"
                 >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={logo} alt={`${companyName} Logo`} className="block size-6 dark:hidden" />
+                    {logo && <img src={logo} alt={`${companyName} Logo`} className="block size-6 dark:hidden" />}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    {(logoDark ?? logo) && <img
                         src={logoDark ?? logo}
                         alt={`${companyName} Logo`}
                         className="hidden size-6 dark:block"
-                    />
+                    />}
                 </a>
                 <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
                     Built with{' '}
@@ -40,7 +41,9 @@ export default async function Layout({ children }: LayoutProps) {
                     </a>
                 </span>
             </header>
-            {children}
+            <AuthGuard>
+                {children}
+            </AuthGuard>
         </>
     );
 }
