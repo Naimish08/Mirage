@@ -92,18 +92,56 @@ async def get_current_user(
     
     # Get or create user in our database
     user_id = supabase_user["id"]
-    user = await user_repo.get_user_by_id(user_id)
     
-    if not user:
-        # Create user from Supabase data
-        profile = extract_user_profile(supabase_user)
-        user = await user_repo.create_user(profile)
-        logger.info(f"Created new user from Supabase auth: {user['email']}")
-    else:
-        # Update last login
-        await user_repo.update_last_login(user_id)
-    
-    return user
+    try:
+        user = await user_repo.get_user_by_id(user_id)
+        
+        if not user:
+            # Create user from Supabase data
+            logger.info(f"User {user_id} not found in database, creating new user entry")
+            profile = extract_user_profile(supabase_user)
+            
+            try:
+                user = await user_repo.create_user(profile)
+                logger.info(
+                    f"✅ Successfully created new user in database: "
+                    f"ID={user['id']}, Email={user['email']}, Name={user.get('full_name', 'N/A')}"
+                )
+            except Exception as create_error:
+                logger.error(
+                    f"❌ FAILED to create user in database: {create_error}",
+                    exc_info=True
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to create user profile: {str(create_error)}"
+                )
+        else:
+            # User exists, update last login
+            logger.debug(f"User {user_id} found in database, updating last login")
+            try:
+                await user_repo.update_last_login(user_id)
+                logger.debug(f"Updated last login for user {user_id}")
+            except Exception as update_error:
+                logger.warning(
+                    f"Failed to update last login for user {user_id}: {update_error}"
+                )
+                # Don't fail the request if we can't update last login
+        
+        return user
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"❌ Unexpected error in get_current_user for user {user_id}: {e}",
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve user data: {str(e)}"
+        )
+
 
 
 async def get_optional_current_user(

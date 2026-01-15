@@ -143,21 +143,30 @@ def extract_user_profile(supabase_user: Dict[str, Any]) -> Dict[str, Any]:
         supabase_user: User data from Supabase validation
         
     Returns:
-        Dictionary with profile information
+        Dictionary with profile information matching the users table schema
     """
     user_metadata = supabase_user.get("user_metadata", {})
     
+    # Only include fields that exist in the users table
     profile = {
         "id": supabase_user["id"],
         "email": supabase_user["email"],
-        "full_name": user_metadata.get("full_name") or user_metadata.get("name"),
-        "avatar_url": user_metadata.get("avatar_url") or user_metadata.get("picture"),
-        "email_verified": supabase_user.get("email_confirmed_at") is not None,
-        "created_at": supabase_user.get("created_at"),
     }
     
-    # Remove None values
-    return {k: v for k, v in profile.items() if v is not None}
+    # Add optional fields if they exist
+    full_name = user_metadata.get("full_name") or user_metadata.get("name")
+    if full_name:
+        profile["full_name"] = full_name
+    
+    avatar_url = user_metadata.get("avatar_url") or user_metadata.get("picture")
+    if avatar_url:
+        profile["avatar_url"] = avatar_url
+    
+    # Note: email_verified and created_at are NOT in the users table schema
+    # The users table uses its own created_at, and doesn't track email verification
+    
+    return profile
+
 
 
 def test_supabase_connection() -> bool:
